@@ -94,6 +94,14 @@ examples:
 def main() -> int:
     args = _build_parser().parse_args()
 
+    # Output contains Unicode (…, —); force UTF-8 so Windows consoles on a
+    # legacy code page don't mangle it.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding='utf-8')
+        except (AttributeError, ValueError):
+            pass
+
     logging.basicConfig(
         format='%(message)s',
         level=logging.DEBUG if args.verbose else logging.INFO,

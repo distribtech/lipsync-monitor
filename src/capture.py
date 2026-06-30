@@ -9,6 +9,10 @@ import av
 import numpy as np
 from typing import Iterator, Optional, Tuple
 
+# PyAV renamed the base error class: <=12 exposed ``av.AVError``,
+# newer releases (>=14) only expose ``av.FFmpegError``.
+_AVError = getattr(av, 'AVError', None) or getattr(av, 'FFmpegError', Exception)
+
 
 class StreamCapture:
     """Decodes video frames and audio samples from any source PyAV/FFmpeg can open."""
@@ -47,6 +51,11 @@ class StreamCapture:
             raise ValueError(f'No video stream found in: {source}')
         if self.audio_stream is None:
             raise ValueError(f'No audio stream found in: {source}')
+
+        # Resampler to coerce any input audio into mono float32 planar.
+        # Newer PyAV dropped the ``to_ndarray(format=...)`` shortcut, so we
+        # convert explicitly here instead.
+        self._audio_resampler = av.AudioResampler(format='fltp', layout='mono')
 
     # ------------------------------------------------------------------
     # Properties
@@ -87,15 +96,18 @@ class StreamCapture:
                     pts = float(frame.pts * frame.time_base)
 
                     if isinstance(frame, av.VideoFrame):
-                        yield 'video', frame.to_ndarray(format='bgr24'), pts
+                        bgr = frame.reformat(format='bgr24').to_ndarray()
+                        yield 'video', bgr, pts
 
                     elif isinstance(frame, av.AudioFrame):
-                        # shape: (channels, samples) → average → mono float32
-                        pcm = frame.to_ndarray(format='fltp')
-                        mono = np.mean(pcm, axis=0).astype(np.float32)
-                        yield 'audio', mono, pts
+                        # Resample to mono float32 planar; one input frame may
+                        # yield zero or more output frames.
+                        for out in self._audio_resampler.resample(frame):
+                            pcm = out.to_ndarray()          # shape (1, samples)
+                            mono = pcm.reshape(-1).astype(np.float32)
+                            yield 'audio', mono, pts
 
-            except av.AVError:
+            except _AVError:
                 continue
 
     def close(self) -> None:
