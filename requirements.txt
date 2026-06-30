@@ -1,8 +1,9 @@
-# MediaPipe 0.10.21 is the last line that still ships the legacy
-# `mp.solutions.face_mesh` API used by src/lip_detector.py. It also pins
-# numpy<2, so opencv is held to a numpy-1.x-compatible build to match.
+# Face detection + landmarks now run on the GPU via InsightFace + onnxruntime.
+# onnxruntime-gpu 1.22.x is the CUDA 12 build (needs CUDA 12.x + cuDNN 9.x on
+# PATH); 1.23+ moved to CUDA 13. Swap for plain `onnxruntime` to run on CPU.
 av>=10.0.0
-mediapipe==0.10.21
 numpy<2
 scipy>=1.11.0
 opencv-python==4.11.0.86
+insightface>=0.7.3
+onnxruntime-gpu==1.22.0
