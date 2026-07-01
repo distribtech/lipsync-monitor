@@ -56,8 +56,17 @@ examples:
         help='Alert threshold in ms — CRIT when |offset| ≥ threshold (default: 80)',
     )
     p.add_argument(
-        '--face-confidence', type=float, default=0.5,
-        help='MediaPipe min face-detection confidence, 0–1 (default: 0.5)',
+        '--face-confidence', type=float, default=0.3,
+        help='Min face-detection confidence, 0–1 (default: 0.3). Broadcast '
+             'faces (turned toward a product, partly under graphics) often '
+             'score near 0.5, so a lower threshold catches more of them; the '
+             'downstream cross-correlation confidence filters false positives.',
+    )
+    p.add_argument(
+        '--det-size', type=int, default=1024, metavar='PX',
+        help='Face-detector input resolution in px (default: 1024). Larger '
+             'finds smaller/further faces but is slower (1280≈20fps, '
+             '1024≈29fps, 640≈71fps on an RTX 3090).',
     )
     p.add_argument(
         '--min-lip-variance', type=float, default=1e-4,
@@ -123,7 +132,7 @@ def main() -> int:
     )
 
     # --- init components ---------------------------------------------------
-    lip_det  = LipDetector(args.face_confidence)
+    lip_det  = LipDetector(args.face_confidence, det_size=args.det_size)
     audio_an = AudioAnalyzer()
     sync_det = SyncDetector(
         fps=capture.fps,
