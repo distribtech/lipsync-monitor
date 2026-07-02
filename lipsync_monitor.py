@@ -78,8 +78,9 @@ examples:
         help='Maximum A/V offset to search for in ms (default: 500)',
     )
     p.add_argument(
-        '--buffer-size', type=int, default=2_097_152,
-        help='UDP receive buffer size in bytes (default: 2097152 = 2 MB)',
+        '--buffer-size', type=int, default=16_777_216,
+        help='UDP receive buffer size in bytes (default: 16777216 = 16 MB). '
+             'Larger absorbs bursts and reduces packet-loss glitches.',
     )
     p.add_argument(
         '--timeout', type=int, default=5_000_000,
