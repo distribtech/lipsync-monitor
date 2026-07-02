@@ -93,12 +93,34 @@ examples:
         '-v', '--verbose', action='store_true',
         help='Print per-interval debug stats (frame count, face rate, buffer sizes)',
     )
+    p.add_argument(
+        '-s', '--show', action='store_true',
+        help='Open a live preview window with overlays: RED box = detected '
+             'face, GREEN box + points = lips. Press q or ESC to quit.',
+    )
+    p.add_argument(
+        '--show-width', type=int, default=1280, metavar='PX',
+        help='Preview window width in px (default: 1280); frames are scaled '
+             'down to fit. Only used with --show.',
+    )
     return p
 
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
+def _overlay_text(offset, conf, status) -> str:  # noqa: ANN001
+    """Compact status line for the preview window overlay."""
+    if offset is None:
+        return {
+            'insufficient_data': 'buffering...',
+            'no_face':           'no face',
+            'low_speech':        'no speech',
+        }.get(status, status)
+    direction = 'audio leads' if offset >= 0 else 'audio lags'
+    return f'{offset:+.0f} ms ({direction})   conf {conf:.2f}'
+
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -146,6 +168,12 @@ def main() -> int:
         is_live=capture.is_multicast,
     )
 
+    viewer = None
+    if args.show:
+        from src.viewer import Viewer
+        viewer = Viewer(title=f'lipsync-monitor  {args.input}',
+                        max_width=args.show_width)
+
     # --- graceful stop -----------------------------------------------------
     running = True
 
@@ -159,6 +187,7 @@ def main() -> int:
     # --- main loop ---------------------------------------------------------
     last_report_pts = -args.interval
     n_frames = n_faces = 0
+    overlay = ''
 
     try:
         for kind, data, pts in capture.packets():
@@ -167,7 +196,8 @@ def main() -> int:
 
             if kind == 'video':
                 n_frames += 1
-                val = lip_det.detect(data)
+                res = lip_det.detect(data)
+                val = res.openness if res is not None else None
                 if val is not None:
                     n_faces += 1
                 sync_det.add_lip(pts, val)
@@ -176,6 +206,10 @@ def main() -> int:
                     last_report_pts = pts
                     offset, conf, status = sync_det.compute()
                     reporter.report(pts, offset, conf, status)
+                    overlay = _overlay_text(offset, conf, status)
+
+                if viewer is not None and not viewer.show(data, res, overlay):
+                    running = False
 
                     if args.verbose and n_frames:
                         log.debug(
@@ -201,6 +235,8 @@ def main() -> int:
         lip_det.close()
         capture.close()
         reporter.close()
+        if viewer is not None:
+            viewer.close()
         log.info('Stopped.')
 
     return 0

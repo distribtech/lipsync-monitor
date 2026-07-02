@@ -23,9 +23,19 @@ Landmark indices (standard 68-point / dlib ordering)
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
+
+
+@dataclass
+class LipResult:
+    """One face's lip-openness plus geometry for drawing."""
+    openness: float                       # scale-invariant lip opening
+    face_bbox: tuple                      # (x1, y1, x2, y2) in image pixels
+    mouth_pts: np.ndarray                 # (N, 2) int mouth landmark coords
+    det_score: float                      # detector confidence
 
 from .gpu_setup import register_cuda_dlls
 
@@ -77,8 +87,11 @@ class LipDetector:
         log.info(f"LipDetector: InsightFace {model_name} on {active}, "
                  f"det_size={det_size}")
 
-    def detect(self, frame_bgr: np.ndarray) -> Optional[float]:
-        """Process one BGR frame; returns lip openness or None."""
+    # Mouth landmark range (outer + inner lips) in the 68-point layout.
+    _MOUTH = slice(48, 68)
+
+    def detect(self, frame_bgr: np.ndarray) -> Optional[LipResult]:
+        """Process one BGR frame; returns a LipResult or None."""
         faces = self._app.get(frame_bgr)
         if not faces:
             return None
@@ -95,7 +108,13 @@ class LipDetector:
             return None
 
         mouth = float(np.linalg.norm(lm[self._UPPER_LIP] - lm[self._LOWER_LIP]))
-        return mouth / eye_dist
+        x1, y1, x2, y2 = face.bbox.astype(int)
+        return LipResult(
+            openness=mouth / eye_dist,
+            face_bbox=(int(x1), int(y1), int(x2), int(y2)),
+            mouth_pts=lm[self._MOUTH].astype(int),
+            det_score=float(face.det_score),
+        )
 
     def close(self) -> None:
         # InsightFace holds onnxruntime sessions; nothing explicit to free.
