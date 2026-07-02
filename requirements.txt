@@ -7,3 +7,4 @@ scipy>=1.11.0
 opencv-python==4.11.0.86
 insightface>=0.7.3
 onnxruntime-gpu==1.22.0
+sounddevice>=0.4        # optional: --audio speaker playback

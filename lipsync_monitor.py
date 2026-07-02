@@ -104,6 +104,11 @@ examples:
         help='Preview window width in px (default: 1280); frames are scaled '
              'down to fit. Only used with --show.',
     )
+    p.add_argument(
+        '-a', '--audio', action='store_true',
+        help="Play the stream's audio through the speakers (mono). Usually "
+             'paired with --show.',
+    )
     return p
 
 
@@ -175,6 +180,16 @@ def main() -> int:
         viewer = Viewer(title=f'lipsync-monitor  {args.input}',
                         max_width=args.show_width)
 
+    player = None
+    if args.audio:
+        try:
+            from src.audio_player import AudioPlayer
+            player = AudioPlayer(capture.audio_sample_rate)
+            player.start()
+        except Exception as exc:                       # no device / no PortAudio
+            log.warning(f'Audio playback disabled: {exc}')
+            player = None
+
     # --- graceful stop -----------------------------------------------------
     running = True
 
@@ -223,6 +238,8 @@ def main() -> int:
 
             elif kind == 'audio':
                 sync_det.add_audio(pts, audio_an.rms(data))
+                if player is not None:
+                    player.feed(data)
 
     except KeyboardInterrupt:
         pass
@@ -238,6 +255,8 @@ def main() -> int:
         reporter.close()
         if viewer is not None:
             viewer.close()
+        if player is not None:
+            player.close()
         log.info('Stopped.')
 
     return 0
