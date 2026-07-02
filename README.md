@@ -125,6 +125,16 @@ The `ITU:` column shows `PASS` / `FAIL` against these limits.
 **CUDA 12.x** and **cuDNN 9.x** installed and on `PATH`. Without a GPU it still
 runs on CPU (much slower) via onnxruntime's CPU provider.
 
+**VRAM / supported cards.** The detection and landmark models are small — the
+app uses only **~0.8 GB of VRAM** at the default `--det-size 1024` (measured
+~810 MB on an RTX 3090; a larger `--det-size` uses slightly more, a smaller one
+less). So practically **any NVIDIA GPU with ≥ 2 GB of free VRAM is enough**. The
+requirement is CUDA 12.x + cuDNN 9 support — in practice any Maxwell-or-newer
+card: GeForce **GTX 900 / 10-series and up, all RTX 20/30/40-series**, and the
+Quadro / Tesla / A-series equivalents. VRAM does not need to scale with video
+resolution (the frame is resized to `--det-size` before detection); higher
+resolutions only cost a little more CPU for decoding.
+
 **Software:** Python 3.11 (Windows 10/11 tested). Python packages are pinned in
 `requirements.txt`:
 
