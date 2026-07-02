@@ -24,7 +24,9 @@ class Viewer:
     def __init__(self, title: str = "lipsync-monitor", max_width: int = 1280) -> None:
         self.title = title
         self.max_width = max_width
-        cv2.namedWindow(title, cv2.WINDOW_NORMAL)
+        self._sized = False
+        # KEEPRATIO letterboxes instead of stretching if the user resizes.
+        cv2.namedWindow(title, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
 
     def show(
         self,
@@ -56,6 +58,13 @@ class Viewer:
         if w > self.max_width:
             scale = self.max_width / w
             img = cv2.resize(img, (self.max_width, int(h * scale)))
+
+        # Size the window to the frame's aspect ratio on the first draw so it
+        # opens as 16:9 instead of the default square-ish WINDOW_NORMAL size.
+        if not self._sized:
+            dh, dw = img.shape[:2]
+            cv2.resizeWindow(self.title, dw, dh)
+            self._sized = True
 
         cv2.imshow(self.title, img)
         key = cv2.waitKey(1) & 0xFF
